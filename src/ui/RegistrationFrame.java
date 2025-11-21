@@ -1,6 +1,6 @@
 package ui;
 
-import bl.Passenger;
+import bl.*;
 import bl.User;
 import dal.UserDAO;
 import util.Constants;
@@ -10,8 +10,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.sql.SQLException;
 
+
 /**
- * RegistrationFrame - User Registration UI
+ * Enhanced RegistrationFrame with Role Selection
  */
 public class RegistrationFrame extends JFrame {
     
@@ -21,6 +22,9 @@ public class RegistrationFrame extends JFrame {
     private JTextField fullNameField;
     private JTextField emailField;
     private JTextField phoneField;
+    private JComboBox<String> roleComboBox;
+    private JTextField licenseField;  // For drivers only
+    private JLabel licenseLabel;
     private JButton registerButton;
     private JButton cancelButton;
     private UserDAO userDAO;
@@ -34,7 +38,7 @@ public class RegistrationFrame extends JFrame {
     
     private void initializeUI() {
         setTitle("Register New Account");
-        setSize(500, 550);
+        setSize(550, 650);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(parentFrame);
         setResizable(false);
@@ -61,41 +65,70 @@ public class RegistrationFrame extends JFrame {
         gbc.gridwidth = 1;
         gbc.anchor = GridBagConstraints.WEST;
         
+        // Role Selection
+        addLabel(mainPanel, "Select Role:", gbc, 1);
+        String[] roles = {"Passenger", "Driver", "Admin"};
+        roleComboBox = new JComboBox<>(roles);
+        roleComboBox.setFont(new Font("Arial", Font.PLAIN, 14));
+        roleComboBox.addActionListener(e -> toggleLicenseField());
+        gbc.gridx = 1;
+        mainPanel.add(roleComboBox, gbc);
+        
         // Username
-        addLabel(mainPanel, "Username:", gbc, 1);
+        addLabel(mainPanel, "Username:", gbc, 2);
         usernameField = new JTextField(20);
+        usernameField.setFont(new Font("Arial", Font.PLAIN, 14));
         gbc.gridx = 1;
         mainPanel.add(usernameField, gbc);
         
         // Password
-        addLabel(mainPanel, "Password:", gbc, 2);
+        addLabel(mainPanel, "Password:", gbc, 3);
         passwordField = new JPasswordField(20);
+        passwordField.setFont(new Font("Arial", Font.PLAIN, 14));
         gbc.gridx = 1;
         mainPanel.add(passwordField, gbc);
         
         // Confirm Password
-        addLabel(mainPanel, "Confirm Password:", gbc, 3);
+        addLabel(mainPanel, "Confirm Password:", gbc, 4);
         confirmPasswordField = new JPasswordField(20);
+        confirmPasswordField.setFont(new Font("Arial", Font.PLAIN, 14));
         gbc.gridx = 1;
         mainPanel.add(confirmPasswordField, gbc);
         
         // Full Name
-        addLabel(mainPanel, "Full Name:", gbc, 4);
+        addLabel(mainPanel, "Full Name:", gbc, 5);
         fullNameField = new JTextField(20);
+        fullNameField.setFont(new Font("Arial", Font.PLAIN, 14));
         gbc.gridx = 1;
         mainPanel.add(fullNameField, gbc);
         
         // Email
-        addLabel(mainPanel, "Email:", gbc, 5);
+        addLabel(mainPanel, "Email:", gbc, 6);
         emailField = new JTextField(20);
+        emailField.setFont(new Font("Arial", Font.PLAIN, 14));
         gbc.gridx = 1;
         mainPanel.add(emailField, gbc);
         
         // Phone
-        addLabel(mainPanel, "Phone (03XXXXXXXXX):", gbc, 6);
+        addLabel(mainPanel, "Phone (03XXXXXXXXX):", gbc, 7);
         phoneField = new JTextField(20);
+        phoneField.setFont(new Font("Arial", Font.PLAIN, 14));
         gbc.gridx = 1;
         mainPanel.add(phoneField, gbc);
+        
+        // License Number (for drivers only)
+        licenseLabel = new JLabel("License Number:");
+        licenseLabel.setFont(new Font("Arial", Font.BOLD, 13));
+        licenseLabel.setVisible(false);
+        gbc.gridx = 0;
+        gbc.gridy = 8;
+        mainPanel.add(licenseLabel, gbc);
+        
+        licenseField = new JTextField(20);
+        licenseField.setFont(new Font("Arial", Font.PLAIN, 14));
+        licenseField.setVisible(false);
+        gbc.gridx = 1;
+        mainPanel.add(licenseField, gbc);
         
         // Button panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
@@ -121,7 +154,7 @@ public class RegistrationFrame extends JFrame {
         buttonPanel.add(cancelButton);
         
         gbc.gridx = 0;
-        gbc.gridy = 7;
+        gbc.gridy = 9;
         gbc.gridwidth = 2;
         gbc.anchor = GridBagConstraints.CENTER;
         mainPanel.add(buttonPanel, gbc);
@@ -137,17 +170,25 @@ public class RegistrationFrame extends JFrame {
         panel.add(label, gbc);
     }
     
+    private void toggleLicenseField() {
+        boolean isDriver = "Driver".equals(roleComboBox.getSelectedItem());
+        licenseLabel.setVisible(isDriver);
+        licenseField.setVisible(isDriver);
+        pack();
+    }
+    
     private void handleRegistration() {
-        // Get input values
+        String selectedRole = (String) roleComboBox.getSelectedItem();
         String username = usernameField.getText().trim();
         String password = new String(passwordField.getPassword());
         String confirmPassword = new String(confirmPasswordField.getPassword());
         String fullName = fullNameField.getText().trim();
         String email = emailField.getText().trim();
         String phone = phoneField.getText().trim();
+        String license = licenseField.getText().trim();
         
         // Validate inputs
-        if (!validateInputs(username, password, confirmPassword, fullName, email, phone)) {
+        if (!validateInputs(selectedRole, username, password, confirmPassword, fullName, email, phone, license)) {
             return;
         }
         
@@ -174,8 +215,28 @@ public class RegistrationFrame extends JFrame {
                         return false;
                     }
                     
-                    // Create new passenger user
-                    User newUser = new Passenger(username, password, fullName, email, phone);
+                    // Create appropriate user based on role
+                    User newUser;
+                    String roleConstant;
+                    
+                    switch (selectedRole) {
+                        case "Admin":
+                            newUser = new Admin(username, password, fullName, email, phone);
+                            roleConstant = Constants.ROLE_ADMIN;
+                            break;
+                        case "Driver":
+                            Driver driver = new Driver(username, password, fullName, email, phone);
+                            driver.setLicenseNumber(license);
+                            newUser = driver;
+                            roleConstant = Constants.ROLE_DRIVER;
+                            break;
+                        default: // Passenger
+                            newUser = new Passenger(username, password, fullName, email, phone);
+                            roleConstant = Constants.ROLE_PASSENGER;
+                            break;
+                    }
+                    
+                    newUser.setRole(roleConstant);
                     return userDAO.registerUser(newUser);
                     
                 } catch (SQLException e) {
@@ -191,7 +252,7 @@ public class RegistrationFrame extends JFrame {
                     
                     if (success) {
                         JOptionPane.showMessageDialog(RegistrationFrame.this,
-                            Constants.SUCCESS_REGISTRATION,
+                            "Registration successful!\nRole: " + selectedRole + "\nYou can now login.",
                             "Success",
                             JOptionPane.INFORMATION_MESSAGE);
                         dispose();
@@ -217,8 +278,8 @@ public class RegistrationFrame extends JFrame {
         worker.execute();
     }
     
-    private boolean validateInputs(String username, String password, String confirmPassword,
-                                   String fullName, String email, String phone) {
+    private boolean validateInputs(String role, String username, String password, String confirmPassword,
+                                   String fullName, String email, String phone, String license) {
         // Check if all fields are filled
         if (!ValidationHelper.isNotEmpty(username) ||
             !ValidationHelper.isNotEmpty(password) ||
@@ -228,6 +289,13 @@ public class RegistrationFrame extends JFrame {
             !ValidationHelper.isNotEmpty(phone)) {
             
             showError(Constants.ERROR_REQUIRED_FIELDS);
+            return false;
+        }
+        
+        // Validate license for drivers
+        if ("Driver".equals(role) && !ValidationHelper.isNotEmpty(license)) {
+            showError("License number is required for drivers.");
+            licenseField.requestFocus();
             return false;
         }
         

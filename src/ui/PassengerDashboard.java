@@ -1,5 +1,4 @@
 package ui;
-
 import bl.*;
 import dal.*;
 import javax.swing.*;
@@ -152,13 +151,48 @@ public class PassengerDashboard extends JFrame {
         titleLabel.setForeground(new Color(0, 102, 204));
         panel.add(titleLabel, BorderLayout.NORTH);
         
-        JLabel infoLabel = new JLabel("<html><center>Select a route, choose your seat, and complete payment<br>" +
-                                     "Implementation: Create a form with route selection, date picker, seat selection, and payment processing</center></html>");
+        // Info panel
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+        infoPanel.setBackground(Color.WHITE);
+        infoPanel.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
+        
+        JLabel infoLabel = new JLabel("<html><center><h2>Book Your Bus Seat</h2>" +
+            "<p>Follow these simple steps to book your seat:</p>" +
+            "<ol style='text-align:left'>" +
+            "<li>Select your desired route and date</li>" +
+            "<li>Choose your pickup and dropoff stops</li>" +
+            "<li>Select an available seat from the seat map</li>" +
+            "<li>Confirm your booking and complete payment</li>" +
+            "</ol>" +
+            "<p><b>Payment methods:</b> Cash, Credit Card, Debit Card, Online</p></center></html>");
         infoLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-        infoLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        panel.add(infoLabel, BorderLayout.CENTER);
+        infoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        infoPanel.add(infoLabel);
+        
+        panel.add(infoPanel, BorderLayout.CENTER);
+        
+        // Button to open booking frame
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        buttonPanel.setBackground(Color.WHITE);
+        
+        JButton bookNowButton = new JButton("Book Seat Now");
+        bookNowButton.setFont(new Font("Arial", Font.BOLD, 16));
+        bookNowButton.setBackground(new Color(0, 153, 76));
+        bookNowButton.setForeground(Color.WHITE);
+        bookNowButton.setPreferredSize(new Dimension(200, 50));
+        bookNowButton.setFocusPainted(false);
+        bookNowButton.addActionListener(e -> openBookingFrame());
+        
+        buttonPanel.add(bookNowButton);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
         
         return panel;
+    }
+    
+    private void openBookingFrame() {
+        BookingFrame bookingFrame = new BookingFrame(passenger);
+        bookingFrame.setVisible(true);
     }
     
     private JPanel createMyBookingsPanel() {
@@ -310,21 +344,132 @@ public class PassengerDashboard extends JFrame {
     }
     
     private JPanel createComplaintsPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         panel.setBackground(Color.WHITE);
         
         JLabel titleLabel = new JLabel("Submit Complaint/Feedback");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
-        titleLabel.setForeground(new Color(0, 102, 204));
+        titleLabel.setForeground(new Color(204, 0, 0));
         panel.add(titleLabel, BorderLayout.NORTH);
         
-        JLabel infoLabel = new JLabel("<html><center>Share your feedback or submit a complaint<br>" +
-                                     "Implementation: Form with complaint type, subject, and description</center></html>");
-        infoLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        panel.add(infoLabel, BorderLayout.CENTER);
+        // Info panel
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+        infoPanel.setBackground(Color.WHITE);
+        infoPanel.setBorder(BorderFactory.createEmptyBorder(20, 50, 20, 50));
+        
+        JLabel infoLabel = new JLabel("<html><center><h2>We Value Your Feedback</h2>" +
+            "<p>Have a complaint or suggestion? We're here to help!</p>" +
+            "<br><p><b>You can report issues related to:</b></p>" +
+            "<ul style='text-align:left'>" +
+            "<li>Service Quality</li>" +
+            "<li>Driver Behavior</li>" +
+            "<li>Bus Condition</li>" +
+            "<li>Route Issues</li>" +
+            "<li>Payment Problems</li>" +
+            "<li>Other Concerns</li>" +
+            "</ul>" +
+            "<p>We review all complaints within 24-48 hours.</p></center></html>");
+        infoLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+        infoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        infoPanel.add(infoLabel);
+        
+        panel.add(infoPanel, BorderLayout.CENTER);
+        
+        // Button to open complaint frame
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+        buttonPanel.setBackground(Color.WHITE);
+        
+        JButton submitComplaintButton = new JButton("Submit New Complaint");
+        submitComplaintButton.setFont(new Font("Arial", Font.BOLD, 14));
+        submitComplaintButton.setBackground(new Color(204, 0, 0));
+        submitComplaintButton.setForeground(Color.WHITE);
+        submitComplaintButton.setPreferredSize(new Dimension(200, 45));
+        submitComplaintButton.setFocusPainted(false);
+        submitComplaintButton.addActionListener(e -> openComplaintFrame());
+        
+        JButton viewComplaintsButton = new JButton("View My Complaints");
+        viewComplaintsButton.setFont(new Font("Arial", Font.BOLD, 14));
+        viewComplaintsButton.setBackground(new Color(0, 102, 204));
+        viewComplaintsButton.setForeground(Color.WHITE);
+        viewComplaintsButton.setPreferredSize(new Dimension(200, 45));
+        viewComplaintsButton.setFocusPainted(false);
+        viewComplaintsButton.addActionListener(e -> viewMyComplaints());
+        
+        buttonPanel.add(submitComplaintButton);
+        buttonPanel.add(viewComplaintsButton);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
         
         return panel;
+    }
+    
+    private void openComplaintFrame() {
+        ComplaintFrame complaintFrame = new ComplaintFrame(passenger);
+        complaintFrame.setVisible(true);
+    }
+    
+    private void viewMyComplaints() {
+        // Create a dialog to show user's complaints
+        JDialog complaintsDialog = new JDialog(this, "My Complaints", true);
+        complaintsDialog.setSize(800, 500);
+        complaintsDialog.setLocationRelativeTo(this);
+        
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        
+        // Table for complaints
+        String[] columnNames = {"ID", "Type", "Subject", "Priority", "Status", "Date"};
+        javax.swing.table.DefaultTableModel tableModel = new javax.swing.table.DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        JTable table = new JTable(tableModel);
+        table.setFont(new Font("Arial", Font.PLAIN, 12));
+        table.setRowHeight(25);
+        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
+        
+        JScrollPane scrollPane = new JScrollPane(table);
+        panel.add(scrollPane, BorderLayout.CENTER);
+        
+        // Load complaints
+        SwingWorker<java.util.List<bl.Complaint>, Void> worker = 
+            new SwingWorker<java.util.List<bl.Complaint>, Void>() {
+            @Override
+            protected java.util.List<bl.Complaint> doInBackground() throws Exception {
+                dal.ComplaintDAO dao = new dal.ComplaintDAO();
+                return dao.getComplaintsByUser(passenger.getUserId());
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    java.util.List<bl.Complaint> complaints = get();
+                    for (bl.Complaint c : complaints) {
+                        tableModel.addRow(new Object[]{
+                            c.getComplaintId(),
+                            c.getComplaintType(),
+                            c.getSubject(),
+                            c.getPriority(),
+                            c.getStatus(),
+                            c.getCreatedAt()
+                        });
+                    }
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(complaintsDialog,
+                        "Error loading complaints: " + e.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+        
+        complaintsDialog.add(panel);
+        complaintsDialog.setVisible(true);
     }
     
     private JPanel createProfilePanel() {

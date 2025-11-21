@@ -1,5 +1,4 @@
 package ui;
-
 import bl.*;
 import dal.*;
 import util.Constants;
@@ -368,10 +367,12 @@ public class AdminDashboard extends JFrame {
         JButton viewBtn = new JButton("View Details");
         viewBtn.setBackground(new Color(0, 102, 204));
         viewBtn.setForeground(Color.WHITE);
+        viewBtn.addActionListener(e -> viewComplaintDetails(complaintsTable, tableModel));
         
         JButton resolveBtn = new JButton("Resolve");
         resolveBtn.setBackground(new Color(0, 153, 76));
         resolveBtn.setForeground(Color.WHITE);
+        resolveBtn.addActionListener(e -> resolveComplaint(complaintsTable, tableModel));
         
         buttonPanel.add(refreshBtn);
         buttonPanel.add(viewBtn);
@@ -383,6 +384,192 @@ public class AdminDashboard extends JFrame {
         loadComplaints(tableModel);
         
         return panel;
+    }
+    
+    private void viewComplaintDetails(JTable table, DefaultTableModel tableModel) {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this,
+                "Please select a complaint to view.",
+                "No Selection",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        int complaintId = (int) tableModel.getValueAt(selectedRow, 0);
+        
+        SwingWorker<Complaint, Void> worker = new SwingWorker<Complaint, Void>() {
+            @Override
+            protected Complaint doInBackground() throws Exception {
+                return complaintDAO.getComplaintById(complaintId);
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    Complaint complaint = get();
+                    if (complaint != null) {
+                        showComplaintDetailsDialog(complaint);
+                    }
+                } catch (Exception e) {
+                    showError("Error loading complaint details: " + e.getMessage());
+                }
+            }
+        };
+        worker.execute();
+    }
+    
+    private void showComplaintDetailsDialog(Complaint complaint) {
+        JDialog dialog = new JDialog(this, "Complaint Details", true);
+        dialog.setSize(600, 500);
+        dialog.setLocationRelativeTo(this);
+        
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panel.setBackground(Color.WHITE);
+        
+        // Details panel
+        JPanel detailsPanel = new JPanel(new GridBagLayout());
+        detailsPanel.setBackground(Color.WHITE);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 8, 8, 8);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        addDetailField(detailsPanel, "Complaint ID:", String.valueOf(complaint.getComplaintId()), gbc, 0);
+        addDetailField(detailsPanel, "User:", complaint.getUserName(), gbc, 1);
+        addDetailField(detailsPanel, "Type:", complaint.getComplaintType(), gbc, 2);
+        addDetailField(detailsPanel, "Priority:", complaint.getPriority(), gbc, 3);
+        addDetailField(detailsPanel, "Status:", complaint.getStatus(), gbc, 4);
+        addDetailField(detailsPanel, "Date:", complaint.getCreatedAt().toString(), gbc, 5);
+        addDetailField(detailsPanel, "Subject:", complaint.getSubject(), gbc, 6);
+        
+        panel.add(detailsPanel, BorderLayout.NORTH);
+        
+        // Description
+        JPanel descPanel = new JPanel(new BorderLayout(5, 5));
+        descPanel.setBackground(Color.WHITE);
+        descPanel.setBorder(BorderFactory.createTitledBorder("Description"));
+        
+        JTextArea descArea = new JTextArea(complaint.getDescription());
+        descArea.setEditable(false);
+        descArea.setLineWrap(true);
+        descArea.setWrapStyleWord(true);
+        descArea.setFont(new Font("Arial", Font.PLAIN, 13));
+        JScrollPane descScroll = new JScrollPane(descArea);
+        descScroll.setPreferredSize(new Dimension(550, 150));
+        descPanel.add(descScroll);
+        
+        panel.add(descPanel, BorderLayout.CENTER);
+        
+        // Response if available
+        if (complaint.getAdminResponse() != null) {
+            JPanel responsePanel = new JPanel(new BorderLayout(5, 5));
+            responsePanel.setBackground(Color.WHITE);
+            responsePanel.setBorder(BorderFactory.createTitledBorder("Admin Response"));
+            
+            JTextArea responseArea = new JTextArea(complaint.getAdminResponse());
+            responseArea.setEditable(false);
+            responseArea.setLineWrap(true);
+            responseArea.setWrapStyleWord(true);
+            responseArea.setFont(new Font("Arial", Font.PLAIN, 13));
+            JScrollPane responseScroll = new JScrollPane(responseArea);
+            responseScroll.setPreferredSize(new Dimension(550, 100));
+            responsePanel.add(responseScroll);
+            
+            panel.add(responsePanel, BorderLayout.SOUTH);
+        }
+        
+        dialog.add(panel);
+        dialog.setVisible(true);
+    }
+    
+    private void addDetailField(JPanel panel, String label, String value, GridBagConstraints gbc, int row) {
+        gbc.gridx = 0;
+        gbc.gridy = row;
+        gbc.gridwidth = 1;
+        gbc.weightx = 0.3;
+        JLabel lbl = new JLabel(label);
+        lbl.setFont(new Font("Arial", Font.BOLD, 13));
+        panel.add(lbl, gbc);
+        
+        gbc.gridx = 1;
+        gbc.weightx = 0.7;
+        JLabel val = new JLabel(value);
+        val.setFont(new Font("Arial", Font.PLAIN, 13));
+        panel.add(val, gbc);
+    }
+    
+    private void resolveComplaint(JTable table, DefaultTableModel tableModel) {
+        int selectedRow = table.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this,
+                "Please select a complaint to resolve.",
+                "No Selection",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        int complaintId = (int) tableModel.getValueAt(selectedRow, 0);
+        String status = (String) tableModel.getValueAt(selectedRow, 5);
+        
+        if ("RESOLVED".equals(status) || "CLOSED".equals(status)) {
+            JOptionPane.showMessageDialog(this,
+                "This complaint has already been resolved.",
+                "Already Resolved",
+                JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+        
+        // Ask for response
+        JTextArea responseArea = new JTextArea(5, 30);
+        responseArea.setLineWrap(true);
+        responseArea.setWrapStyleWord(true);
+        JScrollPane scrollPane = new JScrollPane(responseArea);
+        
+        int option = JOptionPane.showConfirmDialog(this,
+            new Object[]{"Enter your response:", scrollPane},
+            "Resolve Complaint",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE);
+        
+        if (option == JOptionPane.OK_OPTION) {
+            String response = responseArea.getText().trim();
+            
+            if (response.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                    "Please enter a response.",
+                    "Response Required",
+                    JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            
+            SwingWorker<Boolean, Void> worker = new SwingWorker<Boolean, Void>() {
+                @Override
+                protected Boolean doInBackground() throws Exception {
+                    return complaintDAO.resolveComplaint(complaintId, response);
+                }
+                
+                @Override
+                protected void done() {
+                    try {
+                        Boolean success = get();
+                        if (success) {
+                            JOptionPane.showMessageDialog(AdminDashboard.this,
+                                "Complaint resolved successfully!",
+                                "Success",
+                                JOptionPane.INFORMATION_MESSAGE);
+                            loadComplaints(tableModel);
+                        } else {
+                            showError("Failed to resolve complaint.");
+                        }
+                    } catch (Exception e) {
+                        showError("Error resolving complaint: " + e.getMessage());
+                    }
+                }
+            };
+            worker.execute();
+        }
     }
     
     private JPanel createReportsPanel() {
