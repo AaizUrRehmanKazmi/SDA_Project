@@ -78,6 +78,11 @@ public class Constants {
     public static final String SUCCESS_UPDATE = "Updated successfully!";
     public static final String SUCCESS_DELETE = "Deleted successfully!";
     
+    public static final String ROUTE_REQUEST_PENDING = "PENDING";
+    public static final String ROUTE_REQUEST_APPROVED = "APPROVED";
+    public static final String ROUTE_REQUEST_REJECTED = "REJECTED";
+    public static final String ROUTE_REQUEST_CANCELLED = "CANCELLED";
+    
     private Constants() {
         // Private constructor to prevent instantiation
     }

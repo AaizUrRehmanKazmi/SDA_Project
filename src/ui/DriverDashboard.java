@@ -46,11 +46,14 @@ public class DriverDashboard extends JFrame {
     private JButton updateLocationBtn;
     private JButton endTripBtn;
     private JTextArea tripInfoArea;
+    private RouteDAO routeDAO;
+    private Route currentRoute;
     
     public DriverDashboard(Driver driver) {
         this.driver = driver;
         this.tripDAO = new TripDAO();
         this.busDAO = new BusDAO();
+        this.routeDAO = new RouteDAO();
         this.assignmentDAO = new RouteAssignmentDAO();
         initializeUI();
         loadDriverData();
@@ -71,16 +74,75 @@ public class DriverDashboard extends JFrame {
         tabbedPane.setBackground(CARD_BG);
         tabbedPane.setForeground(TEXT_PRIMARY);
         
-        tabbedPane.addTab("🏠 Home", createHomePanel());
-        tabbedPane.addTab("🚌 Active Trip", createActiveTripPanel());
-        tabbedPane.addTab("📋 My Trips", createTripsHistoryPanel());
-        tabbedPane.addTab("🚍 My Bus", createBusInfoPanel());
-        tabbedPane.addTab("👤 Profile", createProfilePanel());
+        tabbedPane.addTab("Home", createHomePanel());
+        tabbedPane.addTab("Active Trip", createActiveTripPanel());
+        tabbedPane.addTab("My Trips", createTripsHistoryPanel());
+        tabbedPane.addTab("Scheduled Trips", createScheduledTripsPanel());
+        tabbedPane.addTab("Route Changes", new RouteChangeRequestPanel(driver.getUserId(), "DRIVER"));
+        tabbedPane.addTab("My Bus", createBusInfoPanel());
+        tabbedPane.addTab("Profile", createProfilePanel());
         
         mainContainer.add(tabbedPane, BorderLayout.CENTER);
         add(mainContainer);
     }
-    
+    private JPanel createScheduledTripsPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panel.setBackground(Color.WHITE);
+        
+        JLabel titleLabel = new JLabel("Scheduled Trips - Assigned by Admin");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(new Color(0, 153, 76));
+        panel.add(titleLabel, BorderLayout.NORTH);
+        
+        // Table for scheduled trips
+        String[] columnNames = {"Trip ID", "Date", "Route", "Bus", "Status", "Start Time", "End Time", "Action"};
+        DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 7;  // Only "Action" column is editable
+            }
+        };
+        
+        JTable scheduledTripsTable = new JTable(tableModel);
+        scheduledTripsTable.setFont(new Font("Arial", Font.PLAIN, 12));
+        scheduledTripsTable.setRowHeight(25);
+        scheduledTripsTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
+        scheduledTripsTable.getTableHeader().setBackground(new Color(0, 153, 76));
+        scheduledTripsTable.getTableHeader().setForeground(Color.WHITE);
+        
+        // Custom button renderer for Action column
+        scheduledTripsTable.getColumn("Action").setCellRenderer((table, value, isSelected, hasFocus, row, column) -> {
+            JButton btn = new JButton("Start");
+            btn.setBackground(new Color(0, 102, 204));
+            btn.setForeground(Color.WHITE);
+            return btn;
+        });
+        
+        JScrollPane scrollPane = new JScrollPane(scheduledTripsTable);
+        panel.add(scrollPane, BorderLayout.CENTER);
+        
+        // Refresh button
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.setBackground(Color.WHITE);
+        
+        JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.addActionListener(e -> loadScheduledTrips(tableModel));
+        
+        JButton refreshManualBtn = new JButton("Load Assigned Trips");
+        refreshManualBtn.setBackground(new Color(0, 153, 76));
+        refreshManualBtn.setForeground(Color.WHITE);
+        refreshManualBtn.addActionListener(e -> loadScheduledTrips(tableModel));
+        
+        buttonPanel.add(refreshBtn);
+        buttonPanel.add(refreshManualBtn);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        // Load scheduled trips
+        loadScheduledTrips(tableModel);
+        
+        return panel;
+    }
     private JPanel createHomePanel() {
         JPanel panel = new JPanel(new BorderLayout(0, 0));
         panel.setBackground(LIGHT_BG);
@@ -172,78 +234,410 @@ public class DriverDashboard extends JFrame {
     }
     
     private JPanel createActiveTripPanel() {
-        JPanel panel = new JPanel(new BorderLayout(0, 0));
-        panel.setBackground(LIGHT_BG);
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panel.setBackground(Color.WHITE);
         
-        // Header
-        JPanel headerPanel = createSectionHeader("🚌 Active Trip Management", 
-            "Manage your current journey", PRIMARY_COLOR);
-        panel.add(headerPanel, BorderLayout.NORTH);
+        JLabel titleLabel = new JLabel("Active Trip Management");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titleLabel.setForeground(new Color(255, 140, 0));
+        panel.add(titleLabel, BorderLayout.NORTH);
         
-        // Content
-        JPanel contentPanel = new JPanel(new BorderLayout(0, 20));
-        contentPanel.setBackground(LIGHT_BG);
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        // Main content panel with two sections
+        JPanel contentPanel = new JPanel(new GridLayout(1, 2, 10, 10));
+        contentPanel.setBackground(Color.WHITE);
         
-        // Status card
-        JPanel statusCard = new JPanel(new BorderLayout());
-        statusCard.setBackground(CARD_BG);
-        statusCard.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(0, 0, 0, 20), 1),
-            BorderFactory.createEmptyBorder(20, 20, 20, 20)
-        ));
+        // ===== LEFT PANEL: SCHEDULED TRIPS TABLE =====
+        JPanel leftPanel = new JPanel(new BorderLayout(10, 10));
+        leftPanel.setBackground(Color.WHITE);
+        leftPanel.setBorder(BorderFactory.createTitledBorder("Scheduled Trips - Click to Select"));
         
-        activeTripStatusLabel = new JLabel("No active trip");
-        activeTripStatusLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        activeTripStatusLabel.setForeground(TEXT_SECONDARY);
-        activeTripStatusLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        statusCard.add(activeTripStatusLabel, BorderLayout.NORTH);
+        String[] tableColumns = {"Trip ID", "Route", "Date", "Bus", "Status", "Action"};
+        DefaultTableModel tableModel = new DefaultTableModel(tableColumns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        JTable tripsTable = new JTable(tableModel);
+        tripsTable.setFont(new Font("Arial", Font.PLAIN, 12));
+        tripsTable.setRowHeight(28);
+        tripsTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
+        tripsTable.getTableHeader().setBackground(new Color(255, 140, 0));
+        tripsTable.getTableHeader().setForeground(Color.WHITE);
+        tripsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JButton selectTripBtn = new JButton("Select Trip from List");
+        // Add mouse listener to select trip when row is clicked
+        tripsTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                int row = tripsTable.getSelectedRow();
+                if (row >= 0) {
+                    // Optional: Highlight row / preview information
+                    onTripSelected(row, tableModel);
+
+                    
+                    selectTripBtn.setEnabled(true);
+                }
+            }
+        });
+        
+        JScrollPane tableScrollPane = new JScrollPane(tripsTable);
+        leftPanel.add(tableScrollPane, BorderLayout.CENTER);
+        
+        // Refresh button for table
+        JPanel tableButtonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        tableButtonPanel.setBackground(Color.WHITE);
+        
+        JButton refreshTableBtn = new JButton("Refresh List");
+        refreshTableBtn.setBackground(new Color(0, 102, 204));
+        refreshTableBtn.setForeground(Color.WHITE);
+        refreshTableBtn.addActionListener(e -> loadScheduledTripsForTable(tableModel));
+        tableButtonPanel.add(refreshTableBtn);
+        leftPanel.add(tableButtonPanel, BorderLayout.SOUTH);
+        
+        // ===== RIGHT PANEL: TRIP DETAILS & ACTIONS =====
+        JPanel rightPanel = new JPanel(new BorderLayout(10, 10));
+        rightPanel.setBackground(Color.WHITE);
+        rightPanel.setBorder(BorderFactory.createTitledBorder("Trip Details"));
         
         // Trip details panel
-        activeTripDetailsPanel = new JPanel(new BorderLayout(10, 10));
-        activeTripDetailsPanel.setBackground(CARD_BG);
-        activeTripDetailsPanel.setVisible(false);
+        JPanel detailsPanel = new JPanel(new GridBagLayout());
+        detailsPanel.setBackground(Color.WHITE);
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(8, 10, 8, 10);
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
         
-        tripInfoArea = new JTextArea();
-        tripInfoArea.setEditable(false);
-        tripInfoArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        tripInfoArea.setBackground(new Color(248, 249, 250));
-        tripInfoArea.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        JScrollPane infoScroll = new JScrollPane(tripInfoArea);
-        infoScroll.setBorder(BorderFactory.createLineBorder(new Color(0, 0, 0, 10)));
-        infoScroll.setPreferredSize(new Dimension(0, 200));
+        // Trip ID
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        detailsPanel.add(new JLabel("Trip ID:"), gbc);
+        JLabel tripIdLabel = new JLabel("Not Selected");
+        tripIdLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        gbc.gridx = 1;
+        detailsPanel.add(tripIdLabel, gbc);
         
-        activeTripDetailsPanel.add(infoScroll, BorderLayout.CENTER);
-        statusCard.add(activeTripDetailsPanel, BorderLayout.CENTER);
+        // Route Name
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        detailsPanel.add(new JLabel("Route:"), gbc);
+        JLabel routeLabel = new JLabel("N/A");
+        routeLabel.setFont(new Font("Arial", Font.BOLD, 12));
+        routeLabel.setForeground(new Color(0, 102, 204));
+        gbc.gridx = 1;
+        detailsPanel.add(routeLabel, gbc);
         
-        contentPanel.add(statusCard, BorderLayout.CENTER);
+        // Trip Date
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        detailsPanel.add(new JLabel("Trip Date:"), gbc);
+        JLabel dateLabel = new JLabel("N/A");
+        dateLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        gbc.gridx = 1;
+        detailsPanel.add(dateLabel, gbc);
+        
+        // Bus Number
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        detailsPanel.add(new JLabel("Bus:"), gbc);
+        JLabel busLabel = new JLabel("N/A");
+        busLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        gbc.gridx = 1;
+        detailsPanel.add(busLabel, gbc);
+        
+        // Status
+        gbc.gridx = 0;
+        gbc.gridy = 4;
+        detailsPanel.add(new JLabel("Status:"), gbc);
+        JLabel statusLabel = new JLabel("No Trip Selected");
+        statusLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        statusLabel.setForeground(new Color(255, 140, 0));
+        gbc.gridx = 1;
+        detailsPanel.add(statusLabel, gbc);
+        
+        // Start Time
+        gbc.gridx = 0;
+        gbc.gridy = 5;
+        detailsPanel.add(new JLabel("Start Time:"), gbc);
+        JLabel startTimeLabel = new JLabel("Not Started");
+        startTimeLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        gbc.gridx = 1;
+        detailsPanel.add(startTimeLabel, gbc);
+        
+        // End Time
+        gbc.gridx = 0;
+        gbc.gridy = 6;
+        detailsPanel.add(new JLabel("End Time:"), gbc);
+        JLabel endTimeLabel = new JLabel("Not Ended");
+        endTimeLabel.setFont(new Font("Arial", Font.PLAIN, 12));
+        gbc.gridx = 1;
+        detailsPanel.add(endTimeLabel, gbc);
+        
+        rightPanel.add(detailsPanel, BorderLayout.NORTH);
         
         // Action buttons
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
-        buttonPanel.setBackground(LIGHT_BG);
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 20));
+        actionPanel.setBackground(Color.WHITE);
+        JButton endBtn = new JButton("End Trip");
+        JButton startBtn = new JButton("Start Trip");
         
-        startTripBtn = createStyledButton("🚀 Start New Trip", SUCCESS_COLOR, 180, 50);
-        startTripBtn.addActionListener(e -> showStartTripDialog());
+        selectTripBtn.setBackground(new Color(0, 153, 76));
+        selectTripBtn.setForeground(Color.WHITE);
+        selectTripBtn.setFont(new Font("Arial", Font.BOLD, 13));
+        selectTripBtn.setPreferredSize(new Dimension(160, 45));
+        selectTripBtn.setEnabled(false);
+        selectTripBtn.addActionListener(e -> selectTripAction(tripsTable, tableModel, 
+            tripIdLabel, routeLabel, dateLabel, busLabel, statusLabel, startTimeLabel, endTimeLabel,startBtn,endBtn));
         
-        updateLocationBtn = createStyledButton("📍 Update Location", INFO_COLOR, 180, 50);
-        updateLocationBtn.setEnabled(false);
-        updateLocationBtn.addActionListener(e -> updateTripLocation());
+        startBtn.setBackground(new Color(0, 153, 76));
+        startBtn.setForeground(Color.WHITE);
+        startBtn.setFont(new Font("Arial", Font.BOLD, 13));
+        startBtn.setPreferredSize(new Dimension(120, 45));
+        startBtn.setEnabled(false);
+        startBtn.addActionListener(e -> startTripAction(tripIdLabel, statusLabel, startTimeLabel, selectTripBtn, startBtn, endBtn, 
+            routeLabel, dateLabel, busLabel, endTimeLabel, tableModel));
         
-        endTripBtn = createStyledButton("🏁 End Trip", DANGER_COLOR, 180, 50);
-        endTripBtn.setEnabled(false);
-        endTripBtn.addActionListener(e -> endTrip());
         
-        buttonPanel.add(startTripBtn);
-        buttonPanel.add(updateLocationBtn);
-        buttonPanel.add(endTripBtn);
+        endBtn.setBackground(new Color(204, 0, 0));
+        endBtn.setForeground(Color.WHITE);
+        endBtn.setFont(new Font("Arial", Font.BOLD, 13));
+        endBtn.setPreferredSize(new Dimension(120, 45));
+        endBtn.setEnabled(false);
+        endBtn.addActionListener(e -> endTripAction(tripIdLabel, statusLabel, endTimeLabel, selectTripBtn, startBtn, endBtn, tableModel));
         
-        contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+        actionPanel.add(selectTripBtn);
+        actionPanel.add(startBtn);
+        actionPanel.add(endBtn);
+        
+        rightPanel.add(actionPanel, BorderLayout.CENTER);
+        
+        contentPanel.add(leftPanel);
+        contentPanel.add(rightPanel);
         
         panel.add(contentPanel, BorderLayout.CENTER);
         
+        // Load scheduled trips on panel creation
+        loadScheduledTripsForTable(tableModel);
+        
         return panel;
     }
-    
+    private void loadScheduledTripsForTable(DefaultTableModel tableModel) {
+        SwingWorker<java.util.List<Trip>, Void> worker = new SwingWorker<java.util.List<Trip>, Void>() {
+            @Override
+            protected java.util.List<Trip> doInBackground() throws Exception {
+                java.util.List<Trip> allTrips = tripDAO.getTripsByDriver(driver.getUserId());
+                java.util.List<Trip> scheduledTrips = new java.util.ArrayList<>();
+                
+                // Include SCHEDULED and IN_PROGRESS trips
+                for (Trip trip : allTrips) {
+                    if ("SCHEDULED".equals(trip.getStatus()) || "IN_PROGRESS".equals(trip.getStatus())) {
+                        scheduledTrips.add(trip);
+                    }
+                }
+                return scheduledTrips;
+            }
+            
+            @Override
+            protected void done() {
+                try {
+                    java.util.List<Trip> trips = get();
+                    tableModel.setRowCount(0);
+                    
+                    for (Trip trip : trips) {
+                        tableModel.addRow(new Object[]{
+                            trip.getTripId(),
+                            trip.getRouteName() != null ? trip.getRouteName() : "N/A",
+                            trip.getTripDate(),
+                            trip.getBusNumber() != null ? trip.getBusNumber() : "N/A",
+                            trip.getStatus(),
+                            trip.getStatus()
+                        });
+                    }
+                    
+                    if (trips.isEmpty()) {
+                        JOptionPane.showMessageDialog(DriverDashboard.this,
+                            "No scheduled trips assigned to you.\nWait for Admin to assign routes.",
+                            "No Scheduled Trips",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    }
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(DriverDashboard.this,
+                        "Error loading scheduled trips: " + e.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
+    }
+
+    // NEW METHOD: Handle trip selection
+    private void onTripSelected(int row, DefaultTableModel tableModel) {
+        // This is called when a row is clicked
+    }
+
+    // NEW METHOD: Select trip from table
+    private void selectTripAction(
+            JTable tripsTable, DefaultTableModel tableModel,
+            JLabel tripIdLabel, JLabel routeLabel, JLabel dateLabel,
+            JLabel busLabel, JLabel statusLabel,
+            JLabel startTimeLabel, JLabel endTimeLabel,
+            JButton startTripBtn, JButton endTripBtn
+    ) {
+        int selectedRow = tripsTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(null, "Please select a trip first!");
+            return;
+        }
+
+        int tripId = (int) tableModel.getValueAt(selectedRow, 0);
+
+        try {
+            this.currentTrip = tripDAO.getTripById(tripId);
+            if (currentTrip != null) {
+
+                tripIdLabel.setText("Trip ID: " + currentTrip.getTripId());
+                routeLabel.setText("Route: " + currentTrip.getRouteName());
+                dateLabel.setText("Date: " + currentTrip.getTripDate());
+                busLabel.setText("Bus: " + currentTrip.getBusNumber());
+                statusLabel.setText("Status: " + currentTrip.getStatus());
+                startTimeLabel.setText("Start Time: " + currentTrip.getStartTime());
+                endTimeLabel.setText("End Time: " + currentTrip.getEndTime());
+
+                // 🔥 Enable / Disable buttons based on status
+                String status = currentTrip.getStatus();
+
+                if ("SCHEDULED".equals(status)) {
+                    startTripBtn.setEnabled(true);
+                    endTripBtn.setEnabled(false);
+                }
+                else if ("IN_PROGRESS".equals(status)) {
+                    startTripBtn.setEnabled(false);
+                    endTripBtn.setEnabled(true);
+                }
+                else {
+                    // COMPLETED, CANCELLED, etc.
+                    startTripBtn.setEnabled(false);
+                    endTripBtn.setEnabled(false);
+                }
+
+                JOptionPane.showMessageDialog(null, "Trip selected successfully!");
+            }
+
+        } catch (SQLException ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Failed to load trip details!");
+        }
+    }
+
+
+    // NEW METHOD: Start trip action
+    private void startTripAction(JLabel tripIdLabel, JLabel statusLabel, JLabel startTimeLabel,
+                                JButton selectTripBtn, JButton startBtn, JButton endBtn,
+                                JLabel routeLabel, JLabel dateLabel, JLabel busLabel,
+                                JLabel endTimeLabel, DefaultTableModel tableModel) {
+        if (currentTrip == null) {
+            JOptionPane.showMessageDialog(this,
+                "Please select a trip first.",
+                "No Trip Selected",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        if (!"SCHEDULED".equals(currentTrip.getStatus())) {
+            JOptionPane.showMessageDialog(this,
+                "Only SCHEDULED trips can be started.",
+                "Cannot Start",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "Start Trip?\n\n" +
+            "Trip ID: " + currentTrip.getTripId() +
+            "\nRoute: " + currentTrip.getRouteName() +
+            "\nBus: " + currentTrip.getBusNumber(),
+            "Confirm Trip Start",
+            JOptionPane.YES_NO_OPTION);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                if (tripDAO.startTrip(currentTrip.getTripId())) {
+                    currentTrip.setStatus("IN_PROGRESS");
+                    statusLabel.setText("IN_PROGRESS");
+                    statusLabel.setForeground(new Color(255, 140, 0));
+                    startTimeLabel.setText(new java.sql.Timestamp(System.currentTimeMillis()).toString());
+                    
+                    startBtn.setEnabled(false);
+                    endBtn.setEnabled(true);
+                    
+                    JOptionPane.showMessageDialog(this,
+                        "Trip started successfully!",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    
+                    loadScheduledTripsForTable(tableModel);
+                }
+            } catch (SQLException e) {
+                JOptionPane.showMessageDialog(this,
+                    "Error starting trip: " + e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
+
+    // NEW METHOD: End trip action
+    private void endTripAction(JLabel tripIdLabel, JLabel statusLabel, JLabel endTimeLabel,
+                              JButton selectTripBtn, JButton startBtn, JButton endBtn,
+                              DefaultTableModel tableModel) {
+        if (currentTrip == null || !"IN_PROGRESS".equals(currentTrip.getStatus())) {
+            JOptionPane.showMessageDialog(this,
+                "No active trip to end.",
+                "No Active Trip",
+                JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        
+        int confirm = JOptionPane.showConfirmDialog(this,
+            "End Trip?\n\n" +
+            "Trip ID: " + currentTrip.getTripId() +
+            "\nRoute: " + currentTrip.getRouteName(),
+            "Confirm Trip End",
+            JOptionPane.YES_NO_OPTION);
+        
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                if (tripDAO.endTrip(currentTrip.getTripId())) {
+                    currentTrip.setStatus("COMPLETED");
+                    statusLabel.setText("COMPLETED");
+                    statusLabel.setForeground(new Color(0, 153, 76));
+                    endTimeLabel.setText(new java.sql.Timestamp(System.currentTimeMillis()).toString());
+                    
+                    endBtn.setEnabled(false);
+                    startBtn.setEnabled(false);
+                    
+                    JOptionPane.showMessageDialog(this,
+                        "Trip ended successfully!",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    
+                    loadScheduledTripsForTable(tableModel);
+                    currentTrip = null;
+                    tripIdLabel.setText("Not Selected");
+                    statusLabel.setText("No Trip Selected");
+                    statusLabel.setForeground(new Color(255, 140, 0));
+                }
+            } catch (SQLException e) {
+                JOptionPane.showMessageDialog(this,
+                    "Error ending trip: " + e.getMessage(),
+                    "Error",
+                    JOptionPane.ERROR_MESSAGE);
+            }
+        }
+    }
     private void showStartTripDialog() {
         JDialog dialog = new JDialog(this, "Start New Trip", true);
         dialog.setSize(600, 500);
@@ -313,7 +707,7 @@ public class DriverDashboard extends JFrame {
             }
             
             int assignmentId = (int) model.getValueAt(selectedRow, 0);
-            startTrip(assignmentId);
+            startNewTrip();
             dialog.dispose();
         });
         
@@ -327,50 +721,89 @@ public class DriverDashboard extends JFrame {
         dialog.add(mainPanel);
         dialog.setVisible(true);
     }
-    
-    private void startTrip(int assignmentId) {
-        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
-        startTripBtn.setEnabled(false);
-        
-        SwingWorker<Boolean, Void> worker = new SwingWorker<Boolean, Void>() {
+    private void loadScheduledTrips(DefaultTableModel tableModel) {
+        SwingWorker<List<Trip>, Void> worker = new SwingWorker<List<Trip>, Void>() {
             @Override
-            protected Boolean doInBackground() throws Exception {
-                // Create new trip
-                Trip newTrip = new Trip(assignmentId, driver.getUserId(), Date.valueOf(LocalDate.now()));
-                boolean created = tripDAO.createTrip(newTrip);
+            protected List<Trip> doInBackground() throws Exception {
+                List<Trip> allTrips = tripDAO.getTripsByDriver(driver.getUserId());
+                java.util.List<Trip> scheduledTrips = new java.util.ArrayList<>();
                 
-                if (created) {
-                    // Start the trip
-                    return tripDAO.startTrip(newTrip.getTripId());
+                // Filter only SCHEDULED trips
+                for (Trip trip : allTrips) {
+                    if ("SCHEDULED".equals(trip.getStatus())) {
+                        scheduledTrips.add(trip);
+                    }
                 }
-                return false;
+                return scheduledTrips;
             }
             
             @Override
             protected void done() {
                 try {
-                    Boolean success = get();
-                    if (success) {
-                        showMessage(
-                            "Trip started successfully!\n\nSafe journey!",
-                            "Trip Started",
-                            JOptionPane.INFORMATION_MESSAGE
-                        );
-                        checkActiveTrip();
-                        loadDriverData();
-                    } else {
-                        showMessage("Failed to start trip", "Error", JOptionPane.ERROR_MESSAGE);
-                        startTripBtn.setEnabled(true);
+                    List<Trip> trips = get();
+                    tableModel.setRowCount(0);
+                    
+                    if (trips.isEmpty()) {
+                        JOptionPane.showMessageDialog(DriverDashboard.this,
+                            "No scheduled trips assigned to you.\n\n" +
+                            "Wait for Admin to assign routes.",
+                            "No Scheduled Trips",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    }
+                    
+                    for (Trip trip : trips) {
+                        tableModel.addRow(new Object[]{
+                            trip.getTripId(),
+                            trip.getTripDate(),
+                            trip.getRouteName(),
+                            trip.getBusNumber(),
+                            trip.getStatus(),
+                            trip.getStartTime() != null ? trip.getStartTime() : "Not Started",
+                            trip.getEndTime() != null ? trip.getEndTime() : "Not Ended",
+                            "Start"  // Action button
+                        });
                     }
                 } catch (Exception e) {
-                    showMessage("Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-                    startTripBtn.setEnabled(true);
-                } finally {
-                    setCursor(Cursor.getDefaultCursor());
+                    JOptionPane.showMessageDialog(DriverDashboard.this,
+                        "Error loading scheduled trips: " + e.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
                 }
             }
         };
         worker.execute();
+    }
+
+    // NEW METHOD - Handle trip start from scheduled list
+    private void startScheduledTrip(int tripId, DefaultTableModel tableModel) {
+        try {
+            if (tripDAO.startTrip(tripId)) {
+                JOptionPane.showMessageDialog(this,
+                    "Trip started successfully!\n" +
+                    "Trip ID: " + tripId,
+                    "Success",
+                    JOptionPane.INFORMATION_MESSAGE);
+                loadScheduledTrips(tableModel);
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this,
+                "Error starting trip: " + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+ // REPLACE ONLY THIS METHOD in DriverDashboard.java
+    private void startNewTrip() {
+        // Create and show the Start New Trip dialog
+        JDialog tripDialog = new JDialog(this, "Start New Trip", true);
+        tripDialog.setSize(900, 700);
+        tripDialog.setLocationRelativeTo(this);
+        
+        // Create the panel
+        StartNewTripPanel startTripPanel = new StartNewTripPanel(driver);
+        tripDialog.add(startTripPanel);
+        
+        tripDialog.setVisible(true);
     }
     
     private void checkActiveTrip() {

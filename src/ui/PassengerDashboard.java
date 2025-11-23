@@ -30,6 +30,7 @@ public class PassengerDashboard extends JFrame {
     private JTabbedPane tabbedPane;
     private BookingDAO bookingDAO;
     private RouteDAO routeDAO;
+    private RouteChangeRequestDAO routeChangeRequestDAO;
     
     // Statistics labels for dynamic updates
     private JLabel totalBookingsValue;
@@ -40,6 +41,7 @@ public class PassengerDashboard extends JFrame {
         this.passenger = passenger;
         this.bookingDAO = new BookingDAO();
         this.routeDAO = new RouteDAO();
+        this.routeChangeRequestDAO = new RouteChangeRequestDAO();
         initializeUI();
         loadPassengerData();
     }
@@ -65,6 +67,7 @@ public class PassengerDashboard extends JFrame {
         tabbedPane.addTab("Book Ticket", createBookingPanel());
         tabbedPane.addTab("My Bookings", createMyBookingsPanel());
         tabbedPane.addTab("Track Bus", createTrackingPanel());
+        tabbedPane.addTab("Route Changes", new RouteChangeRequestPanel(passenger.getUserId(), "PASSENGER"));
         tabbedPane.addTab("Complaints", createComplaintsPanel());
         tabbedPane.addTab("Profile", createProfilePanel());
         
