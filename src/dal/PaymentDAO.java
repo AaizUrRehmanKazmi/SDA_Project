@@ -179,6 +179,90 @@ public class PaymentDAO {
         }
     }
     
+ // Get today's revenue
+    public double getDailyRevenue() throws SQLException {
+        String query = "SELECT COALESCE(SUM(amount), 0) FROM Payments " +
+                "WHERE payment_status = 'COMPLETED' " +
+                "AND DATE(payment_date) = CURDATE()";
+
+        Connection conn = null;
+        try {
+            conn = dbConnection.getConnection();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(query);
+
+            return rs.next() ? rs.getDouble(1) : 0.0;
+        } finally {
+            if (conn != null) dbConnection.releaseConnection(conn);
+        }
+    }
+
+    // Get revenue for current month
+    public double getMonthlyRevenue() throws SQLException {
+        String query = "SELECT COALESCE(SUM(amount), 0) FROM Payments " +
+                "WHERE payment_status = 'COMPLETED' " +
+                "AND MONTH(payment_date) = MONTH(CURDATE()) " +
+                "AND YEAR(payment_date) = YEAR(CURDATE())";
+
+        Connection conn = null;
+        try {
+            conn = dbConnection.getConnection();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(query);
+
+            return rs.next() ? rs.getDouble(1) : 0.0;
+        } finally {
+            if (conn != null) dbConnection.releaseConnection(conn);
+        }
+    }
+
+    // Get revenue for current year
+    public double getYearlyRevenue() throws SQLException {
+        String query = "SELECT COALESCE(SUM(amount), 0) FROM Payments " +
+                "WHERE payment_status = 'COMPLETED' " +
+                "AND YEAR(payment_date) = YEAR(CURDATE())";
+
+        Connection conn = null;
+        try {
+            conn = dbConnection.getConnection();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(query);
+
+            return rs.next() ? rs.getDouble(1) : 0.0;
+        } finally {
+            if (conn != null) dbConnection.releaseConnection(conn);
+        }
+    }
+
+    // Get revenue grouped by route
+    public List<Object[]> getRevenueByRoute() throws SQLException {
+        List<Object[]> list = new ArrayList<>();
+
+        String query = "SELECT r.route_name, COALESCE(SUM(p.amount), 0) " +
+                "FROM Payments p " +
+                "JOIN Bookings b ON p.booking_id = b.booking_id " +
+                "JOIN Routes r ON b.route_id = r.route_id " +
+                "WHERE p.payment_status = 'COMPLETED' " +
+                "GROUP BY r.route_name " +
+                "ORDER BY SUM(p.amount) DESC";
+
+        Connection conn = null;
+        try {
+            conn = dbConnection.getConnection();
+            Statement stmt = conn.createStatement();
+            ResultSet rs = stmt.executeQuery(query);
+
+            while (rs.next()) {
+                list.add(new Object[]{rs.getString(1), rs.getDouble(2)});
+            }
+        } finally {
+            if (conn != null) dbConnection.releaseConnection(conn);
+        }
+
+        return list;
+    }
+
+    
     // Get revenue by date range
     public double getRevenueByDateRange(Date startDate, Date endDate) throws SQLException {
         String query = "SELECT COALESCE(SUM(amount), 0) FROM Payments " +
