@@ -19,6 +19,72 @@ public class DriverDashboard extends JFrame {
     private TripDAO tripDAO;
     private Trip currentTrip;
     
+ // Modern UI Colors
+    private static final Color PRIMARY = new Color(255, 140, 0);
+    private static final Color SUCCESS = new Color(46, 204, 113);
+    private static final Color INFO = new Color(52, 152, 219);
+    private static final Color DANGER = new Color(231, 76, 60);
+    private static final Color CARD_BG = Color.WHITE;
+
+    // Modern Button
+ // Modern Button
+    private JButton createModernButton(String text, Color color, int w, int h) {
+        JButton btn = new JButton(text) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                Color c = getModel().isPressed() ? color.darker()
+                        : getModel().isRollover() ? color.brighter()
+                        : color;
+
+                // draw rounded background
+                g2.setColor(c);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                g2.dispose();
+
+                // now let JButton paint the text, focus, etc.
+                super.paintComponent(g);
+            }
+        };
+
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setForeground(Color.WHITE);
+        btn.setPreferredSize(new Dimension(w, h));
+        btn.setContentAreaFilled(false);
+        btn.setBorderPainted(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setHorizontalTextPosition(SwingConstants.CENTER);
+        btn.setVerticalTextPosition(SwingConstants.CENTER);
+
+        return btn;
+    }
+
+
+    // Modern Table
+    private JTable createStyledTable(DefaultTableModel model, Color lineColor) {
+        JTable table = new JTable(model);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setRowHeight(30);
+        table.setShowGrid(true);
+        table.setGridColor(new Color(220,220,220));
+
+        JTableHeader header = table.getTableHeader();
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setBackground(Color.WHITE);
+        header.setForeground(Color.BLACK);
+        header.setOpaque(true);
+        header.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, lineColor));
+
+        ((DefaultTableCellRenderer) header.getDefaultRenderer())
+                .setHorizontalAlignment(SwingConstants.CENTER);
+
+        return table;
+    }
+
+    
     public DriverDashboard(Driver driver) {
         this.driver = driver;
         this.tripDAO = new TripDAO();
@@ -84,10 +150,10 @@ public class DriverDashboard extends JFrame {
         JPanel actionsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 20));
         actionsPanel.setBackground(Color.WHITE);
         
-        JButton startTripBtn = createActionButton("Start New Trip", new Color(0, 153, 76));
+        JButton startTripBtn = createModernButton("Start New Trip", SUCCESS, 180, 50);
         startTripBtn.addActionListener(e -> startNewTrip());
         
-        JButton viewTripsBtn = createActionButton("View Trip History", new Color(0, 102, 204));
+        JButton viewTripsBtn = createModernButton("View Trip History", INFO, 180, 50);
         viewTripsBtn.addActionListener(e -> tabbedPane.setSelectedIndex(2));
         
         actionsPanel.add(startTripBtn);
@@ -130,21 +196,21 @@ public class DriverDashboard extends JFrame {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
         buttonPanel.setBackground(Color.WHITE);
         
-        JButton startBtn = new JButton("Start Trip");
+        JButton startBtn = createModernButton("Start Trip", SUCCESS, 140, 40);
         startBtn.setBackground(new Color(0, 153, 76));
         startBtn.setForeground(Color.WHITE);
         startBtn.setFont(new Font("Arial", Font.BOLD, 14));
         startBtn.setPreferredSize(new Dimension(140, 40));
         startBtn.addActionListener(e -> startTrip());
         
-        JButton updateLocationBtn = new JButton("Update Location");
+        JButton updateLocationBtn = createModernButton("Update Location", INFO, 140, 40);
         updateLocationBtn.setBackground(new Color(0, 102, 204));
         updateLocationBtn.setForeground(Color.WHITE);
         updateLocationBtn.setFont(new Font("Arial", Font.BOLD, 14));
         updateLocationBtn.setPreferredSize(new Dimension(140, 40));
         updateLocationBtn.addActionListener(e -> updateLocation());
         
-        JButton endBtn = new JButton("End Trip");
+        JButton endBtn = createModernButton("End Trip", DANGER, 140, 40);
         endBtn.setBackground(new Color(204, 0, 0));
         endBtn.setForeground(Color.WHITE);
         endBtn.setFont(new Font("Arial", Font.BOLD, 14));
@@ -164,13 +230,14 @@ public class DriverDashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         panel.setBackground(Color.WHITE);
-        
+
+        // Title
         JLabel titleLabel = new JLabel("Trip History");
         titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
-        titleLabel.setForeground(new Color(255, 140, 0));
+        titleLabel.setForeground(PRIMARY);
         panel.add(titleLabel, BorderLayout.NORTH);
-        
-        // Table for trips
+
+        // Table Model
         String[] columnNames = {"Trip ID", "Date", "Route", "Bus", "Status", "Start Time", "End Time"};
         DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
@@ -178,32 +245,37 @@ public class DriverDashboard extends JFrame {
                 return false;
             }
         };
-        
-        JTable tripsTable = new JTable(tableModel);
-        tripsTable.setFont(new Font("Arial", Font.PLAIN, 12));
-        tripsTable.setRowHeight(25);
-        tripsTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
-        tripsTable.getTableHeader().setBackground(new Color(255, 140, 0));
-        tripsTable.getTableHeader().setForeground(Color.WHITE);
-        
+
+        // ✅ Create Styled Table (NO EXTRA HEADER STYLING HERE)
+        JTable tripsTable = createStyledTable(tableModel, PRIMARY);
+
+        // ✅ Ensure white background so headers are visible
+        tripsTable.setBackground(Color.WHITE);
+
+        // ✅ ScrollPane with white viewport
         JScrollPane scrollPane = new JScrollPane(tripsTable);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        scrollPane.getViewport().setBackground(Color.WHITE);
+
         panel.add(scrollPane, BorderLayout.CENTER);
-        
-        // Refresh button
+
+        // ✅ Refresh Button
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttonPanel.setBackground(Color.WHITE);
-        
-        JButton refreshBtn = new JButton("Refresh");
+
+        JButton refreshBtn = createModernButton("Refresh", INFO, 120, 35);
         refreshBtn.addActionListener(e -> loadTrips(tableModel));
         buttonPanel.add(refreshBtn);
-        
+
         panel.add(buttonPanel, BorderLayout.SOUTH);
-        
-        // Load trips
+
+        // ✅ Load Data into Table
         loadTrips(tableModel);
-        
+
         return panel;
     }
+
+
     
     private JPanel createProfilePanel() {
         JPanel panel = new JPanel(new GridBagLayout());
@@ -235,7 +307,7 @@ public class DriverDashboard extends JFrame {
         gbc.gridy = 6;
         addProfileField(panel, "Rating:", String.format("%.2f", driver.getAverageRating()), gbc);
         
-        JButton logoutBtn = new JButton("Logout");
+        JButton logoutBtn = createModernButton("Logout", DANGER, 150, 45);
         logoutBtn.setBackground(new Color(204, 0, 0));
         logoutBtn.setForeground(Color.WHITE);
         logoutBtn.addActionListener(e -> logout());
