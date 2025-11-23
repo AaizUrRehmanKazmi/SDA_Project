@@ -411,18 +411,17 @@ public class BookingFrame extends JFrame {
                     Boolean success = get();
                     
                     if (success) {
-                        JOptionPane.showMessageDialog(BookingFrame.this,
-                            String.format("Booking Confirmed!\n\n" +
-                                        "Booking ID: %d\n" +
-                                        "Seat Number: %d\n" +
-                                        "Amount Paid: Rs. %.2f\n\n" +
-                                        "Thank you for booking with Uzair Transport!",
-                                        newBooking.getBookingId(),
-                                        selectedSeat,
-                                        selectedAssignment.getFare()),
-                            "Booking Successful",
-                            JOptionPane.INFORMATION_MESSAGE);
+
+                        // ✅ Open Invoice Window with booking & passenger info
+                        InvoiceFrame invoice = new InvoiceFrame(newBooking, passenger);
+
+                        // ✅ Show invoice
+                        invoice.setVisible(true);
+
+                        // ✅ Close booking window
                         dispose();
+                  
+
                     } else {
                         JOptionPane.showMessageDialog(BookingFrame.this,
                             "Booking failed. Please try again.",
